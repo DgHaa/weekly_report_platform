@@ -1,0 +1,36 @@
+# 依赖
+node_modules/
+
+# 构建产物（前端由使用者自行 npm run build 生成）
+client/dist/
+
+# 数据库（含真实周报数据，切勿提交；首次运行自动建库）
+data/*.db
+data/*.db-shm
+data/*.db-wal
+!data/.gitkeep
+
+# 运行期上传的图片等附件
+uploads/*
+!uploads/.gitkeep
+
+# 日志
+*.log
+server.log
+
+# 环境变量 / 密钥
+.env
+.env.local
+
+# 工具数据
+.workbuddy/
+
+# 文档里生成的验证产物（截图 / 样例导出，可能含真实数据）
+docs/*.png
+docs/*.pdf
+docs/*.eml
+docs/*.html
+
+# 系统文件
+.DS_Store
+Thumbs.db
