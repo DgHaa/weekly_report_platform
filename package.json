@@ -5,11 +5,13 @@
   "private": true,
   "scripts": {
     "start": "node src/index.js",
+    "prestart": "node scripts/ensure-build.mjs && node scripts/ensure-chromium.mjs",
+    "postinstall": "npm --prefix client install --legacy-peer-deps --no-audit --no-fund",
     "dev": "concurrently -n server,client -c blue,green \"npm:start\" \"npm:client:dev\"",
     "client:dev": "npm --prefix client run dev",
     "client:build": "npm --prefix client run build",
     "build": "npm --prefix client run build",
-    "setup": "npm install && npm --prefix client install --legacy-peer-deps --no-audit --no-fund"
+    "setup": "node scripts/ensure-chromium.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

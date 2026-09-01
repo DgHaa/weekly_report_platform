@@ -28,40 +28,35 @@ weekly-report-platform/
 ## 运行
 
 > **环境要求**：Node.js 18+（推荐 20 / 22，已用 `.nvmrc` 声明）。后端依赖 `better-sqlite3` 为原生模块，需与本机 Node 版本 ABI 匹配；若 `npm install` 报原生编译错误，请升级 Node 或安装 Python3 + 构建工具后重试。
-> **PDF 导出**：首次使用 PDF 导出前需 `npx playwright install chromium`（一次性下载浏览器）；未安装时 HTML / 邮件导出仍正常，仅 PDF 按钮会报错。
 
-### 一键启动（推荐，开发模式）
+### 开箱即用（推荐）
+克隆后只需两条命令，全部功能（界面 + HTML / PDF / 邮件导出）即可运行：
 ```bash
-npm run setup     # 安装前后端依赖（后端 + 前端；前端自动带 --legacy-peer-deps）
-npm run dev       # 用 concurrently 同时拉起后端(:8000) 与前端(:5173)
+npm install     # 安装后端依赖，并自动安装前端依赖（postinstall）
+npm start        # 首次自动构建前端 + 自动下载 PDF 所需 Chromium，然后启动服务
 ```
-启动后浏览器打开 **http://localhost:5173** 即可看到完整界面（Vite 会把前端的 /api、/collab 请求代理到后端 8000）。
-
-### 后端
-```bash
-cd weekly-report-platform
-npm install
-npm start            # 默认 http://localhost:8000
-```
-> 启动即自动创建 `data/weekly.db`（若无）并写入默认 4 个部门与管理员。**此命令仅启动 API 服务**，浏览器界面需配合下方「前端」步骤（`npm run dev` 开发，或先 `npm run build` 生产）后才能看到。
+启动后浏览器打开 **http://localhost:8000** 即可看到完整界面。
+- 前端依赖由 `postinstall` 脚本自动装好，无需手动 `cd client && npm install`。
+- 首次 `npm start` 会自动 `vite build` 生成 `client/dist`；以后仅改后端代码时秒启。
+- 首次 `npm start` 会自动下载 PDF 导出所需的 Chromium（一次性，约 100MB，存于系统缓存，不入库）；若下载失败仅 PDF 不可用，HTML / 邮件导出仍正常。
+- 数据库 `data/weekly.db` 在启动时自动创建并写入默认 4 个部门与管理员。
 
 默认管理员：`admin / admin123`
 
-### 前端（开发）
+### 开发模式（热更新）
 ```bash
-cd weekly-report-platform/client
-# 注意：必须加 --legacy-peer-deps，否则 Tiptap 与 React 18 会 ERESOLVE 冲突
-npm install --legacy-peer-deps --no-audit --no-fund
-npm run dev          # http://localhost:5173 （代理 /api、/collab → :8000）
+npm install
+npm run dev       # 用 concurrently 同时拉起后端(:8000) 与前端(:5173，支持热更新)
 ```
+启动后浏览器打开 **http://localhost:5173**（Vite 会把 /api、/collab 请求代理到后端 8000）。
 
-如果安装卡住/报错，详见 [`docs/依赖手动安装指南.md`](./docs/依赖手动安装指南.md)。
+> 如果前端依赖安装卡住/报错，详见 [`docs/依赖手动安装指南.md`](./docs/依赖手动安装指南.md)。
 
-### 生产构建（前后端一体）
+### 生产构建（前后端一体，手动）
 ```bash
-cd weekly-report-platform/client && npm run build   # 生成 client/dist
-# 重启后端即可在 http://localhost:8000 直接访问前端
-npm start
+npm install
+npm run build     # 生成 client/dist（也可直接 npm start，会自动构建）
+npm start          # http://localhost:8000 直接访问前端
 ```
 
 ## 功能覆盖
@@ -78,5 +73,4 @@ npm start
 - 编辑器内置「预览」模式，可实时切换并预览导出主题风格（风格随周报持久化）
 
 ## 已知限制
-- PDF 导出需先执行 `npx playwright install chromium`（一次性下载浏览器）。
 - 实时协作文档在服务端内存中转发，未做 Yjs 持久化到 SQLite（以 30s REST 存稿为持久来源）；服务重启后从 DB 重载。
