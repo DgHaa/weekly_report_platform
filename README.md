@@ -30,6 +30,13 @@ weekly-report-platform/
 > **环境要求**：Node.js 18+（推荐 20 / 22，已用 `.nvmrc` 声明）。后端依赖 `better-sqlite3` 为原生模块，需与本机 Node 版本 ABI 匹配；若 `npm install` 报原生编译错误，请升级 Node 或安装 Python3 + 构建工具后重试。
 > **PDF 导出**：首次使用 PDF 导出前需 `npx playwright install chromium`（一次性下载浏览器）；未安装时 HTML / 邮件导出仍正常，仅 PDF 按钮会报错。
 
+### 一键启动（推荐，开发模式）
+```bash
+npm run setup     # 安装前后端依赖（后端 + 前端；前端自动带 --legacy-peer-deps）
+npm run dev       # 用 concurrently 同时拉起后端(:8000) 与前端(:5173)
+```
+启动后浏览器打开 **http://localhost:5173** 即可看到完整界面（Vite 会把前端的 /api、/collab 请求代理到后端 8000）。
+
 ### 后端
 ```bash
 cd weekly-report-platform

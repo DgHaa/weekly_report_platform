@@ -5,7 +5,11 @@
   "private": true,
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "concurrently -n server,client -c blue,green \"npm:start\" \"npm:client:dev\"",
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client run build",
+    "build": "npm --prefix client run build",
+    "setup": "npm install && npm --prefix client install --legacy-peer-deps --no-audit --no-fund"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
@@ -17,5 +21,8 @@
     "ws": "^8.18.0",
     "y-websocket": "^1.5.4",
     "yjs": "^13.6.18"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }
