@@ -26,12 +26,18 @@ weekly-report-platform/
 ```
 
 ## 运行
+
+> **环境要求**：Node.js 18+（推荐 20 / 22，已用 `.nvmrc` 声明）。后端依赖 `better-sqlite3` 为原生模块，需与本机 Node 版本 ABI 匹配；若 `npm install` 报原生编译错误，请升级 Node 或安装 Python3 + 构建工具后重试。
+> **PDF 导出**：首次使用 PDF 导出前需 `npx playwright install chromium`（一次性下载浏览器）；未安装时 HTML / 邮件导出仍正常，仅 PDF 按钮会报错。
+
 ### 后端
 ```bash
 cd weekly-report-platform
 npm install
 npm start            # 默认 http://localhost:8000
 ```
+> 启动即自动创建 `data/weekly.db`（若无）并写入默认 4 个部门与管理员。**此命令仅启动 API 服务**，浏览器界面需配合下方「前端」步骤（`npm run dev` 开发，或先 `npm run build` 生产）后才能看到。
+
 默认管理员：`admin / admin123`
 
 ### 前端（开发）
