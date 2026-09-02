@@ -1,36 +1,53 @@
 import { useState } from 'react';
 
 const STATUS_LABELS: Record<string, string> = { blank: '未填写', stale: '未更新', done: '已更新' };
-const FILTERS = ['all', 'blank', 'stale', 'done'] as const;
+// 筛选 chip 文案（pending 为组合筛选：未填写 + 未更新）
+const CHIP_LABELS: Record<string, string> = {
+  all: '全部',
+  blank: '未填写',
+  stale: '未更新',
+  done: '已更新',
+  pending: '只看有进展(未填写+未更新)',
+};
+const FILTERS = ['all', 'blank', 'stale', 'done', 'pending'] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function Kanban({ report }: { report: any }) {
   const [filter, setFilter] = useState<Filter>('all');
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
 
-  // 按筛选条件取某部门下参与统计的工作项
-  const pick = (items: any[]) => (filter === 'all' ? items : items.filter((w) => w.status === filter));
+  // 按筛选条件取工作项集合
+  const pick = (items: any[]) => {
+    if (filter === 'all') return items;
+    if (filter === 'pending') return items.filter((w) => w.status === 'blank' || w.status === 'stale');
+    return items.filter((w) => w.status === filter);
+  };
+
+  const toggleDept = (id: number) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const rows = report.departments.map((d: any) => {
     const vis = pick(d.work_items);
     const total = vis.length;
     const done = vis.filter((w: any) => w.status === 'done').length;
-    return { id: d.id, name: d.name, total, done };
+    return { id: d.id, name: d.name, total, done, isCollapsed: collapsed.has(d.id) };
   });
   const overallTotal = rows.reduce((s: number, r: any) => s + r.total, 0);
   const overallDone = rows.reduce((s: number, r: any) => s + r.done, 0);
 
   const pct = (d: number, t: number) => (t ? (d / t) * 100 : 0);
+  const hintLabel = filter === 'pending' ? '未填写 + 未更新' : STATUS_LABELS[filter];
 
   return (
     <div className="kanban">
       <div className="kb-filters">
         {FILTERS.map((f) => (
-          <button
-            key={f}
-            className={`kb-chip ${filter === f ? 'active' : ''}`}
-            onClick={() => setFilter(f)}
-          >
-            {f === 'all' ? '全部' : STATUS_LABELS[f]}
+          <button key={f} className={`kb-chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
+            {CHIP_LABELS[f]}
           </button>
         ))}
       </div>
@@ -41,13 +58,22 @@ export default function Kanban({ report }: { report: any }) {
       </div>
       {rows.map((r: any) => (
         <div className="kb-row" key={r.id}>
-          <b style={{ width: 120, fontSize: 13, fontWeight: 400 }}>{r.name}</b>
-          <div className="kb-bar"><div className="kb-fill" style={{ width: `${pct(r.done, r.total)}%` }} /></div>
-          <span className="kb-count">{r.done}/{r.total}</span>
+          <button className="kb-collapse" onClick={() => toggleDept(r.id)} title={r.isCollapsed ? '展开' : '折叠'} aria-expanded={!r.isCollapsed}>
+            {r.isCollapsed ? '▸' : '▾'}
+          </button>
+          <b className="kb-dept-name" style={{ width: 108, fontSize: 13, fontWeight: 400 }} onClick={() => toggleDept(r.id)}>
+            {r.name}
+          </b>
+          {!r.isCollapsed && (
+            <>
+              <div className="kb-bar"><div className="kb-fill" style={{ width: `${pct(r.done, r.total)}%` }} /></div>
+              <span className="kb-count">{r.done}/{r.total}</span>
+            </>
+          )}
         </div>
       ))}
       {filter !== 'all' && (
-        <div className="kb-hint">当前筛选：{STATUS_LABELS[filter]}（进度条为该状态下 已更新 / 总数）</div>
+        <div className="kb-hint">当前筛选：{hintLabel}（进度条为该状态下 已更新 / 总数）</div>
       )}
     </div>
   );

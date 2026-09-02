@@ -415,6 +415,14 @@ input::placeholder, textarea::placeholder { color: #9aa1ad; }
 }
 .kb-row { display: flex; align-items: center; gap: 12px; }
 .kb-row b { width: 124px; font-weight: 600; font-size: 13.5px; color: var(--text); }
+.kb-collapse {
+  border: none; background: transparent; cursor: pointer; color: var(--muted);
+  font-size: 11px; line-height: 1; width: 18px; padding: 0; flex: none;
+  transition: color 0.15s ease;
+}
+.kb-collapse:hover { color: var(--primary); }
+.kb-dept-name { cursor: pointer; user-select: none; }
+.kb-dept-name:hover { color: var(--primary); }
 .kb-bar { flex: 1; height: 12px; background: rgba(23, 26, 43, 0.07); border-radius: var(--radius-pill); overflow: hidden; }
 .kb-fill {
   height: 100%;
