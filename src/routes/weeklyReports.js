@@ -175,7 +175,7 @@ r.post('/departments/:did/work-items', (req, res) => {
   const max = db.prepare('SELECT COALESCE(MAX(sort_order),-1) m FROM work_items WHERE department_id=?').get(dep.id).m;
   const wi = db.prepare('INSERT INTO work_items (department_id,title,status,sort_order,updated_at) VALUES (?,?,?,?,?)')
     .run(dep.id, title || '', 'blank', max + 1, now);
-  logHistory({ weekly_report_id: dep.weekly_report_id, work_item_id: wi.lastInsertRowid, field: 'work_item', action: 'create', operator_id: req.user.uid, summary: `新增工作项 ${title || ''}` });
+  logHistory({ weekly_report_id: dep.weekly_report_id, work_item_id: wi.lastInsertRowid, field: 'work_item', action: 'create', operator_id: req.user.uid, summary: `新增工作项「${title || ''}」` });
   res.json({ id: wi.lastInsertRowid });
 });
 
@@ -190,14 +190,22 @@ r.patch('/work-items/:wid', (req, res) => {
   db.prepare('UPDATE work_items SET title=?, progress_html=?, plan_html=?, status=?, updated_at=? WHERE id=?')
     .run(title ?? wi.title, progress_html ?? wi.progress_html, plan_html ?? wi.plan_html, ns, new Date().toISOString(), wi.id);
   const wid = db.prepare('SELECT weekly_report_id FROM departments WHERE id=?').get(wi.department_id).weekly_report_id;
-  logHistory({ weekly_report_id: wid, work_item_id: wi.id, field: 'work_item', action: 'update', operator_id: req.user.uid, summary: '更新工作项' });
+  // 细化到具体工作项 + 变更字段
+  const newTitle = title ?? wi.title;
+  const changes = [];
+  if (title !== undefined && title !== wi.title) changes.push(`标题→${newTitle || '(空)'}`);
+  if (ns !== wi.status) changes.push(`状态→${ns}`);
+  if (progress_html !== undefined && progress_html !== wi.progress_html) changes.push('编辑本周进展');
+  if (plan_html !== undefined && plan_html !== wi.plan_html) changes.push('编辑下周计划');
+  const detail = changes.length ? `（${changes.join('，')}）` : '';
+  logHistory({ weekly_report_id: wid, work_item_id: wi.id, field: 'work_item', action: 'update', operator_id: req.user.uid, summary: `更新工作项「${newTitle}」${detail}` });
   res.json(db.prepare('SELECT * FROM work_items WHERE id=?').get(wi.id));
 });
 
 r.delete('/work-items/:wid', requireAdmin, (req, res) => {
-  const wi = db.prepare('SELECT w.id, d.weekly_report_id FROM work_items w JOIN departments d ON w.department_id=d.id WHERE w.id=?').get(req.params.wid);
+  const wi = db.prepare('SELECT w.id, w.title, d.weekly_report_id FROM work_items w JOIN departments d ON w.department_id=d.id WHERE w.id=?').get(req.params.wid);
   db.prepare('DELETE FROM work_items WHERE id=?').run(req.params.wid);
-  if (wi) logHistory({ weekly_report_id: wi.weekly_report_id, work_item_id: wi.id, field: 'work_item', action: 'delete', operator_id: req.user.uid, summary: '删除工作项' });
+  if (wi) logHistory({ weekly_report_id: wi.weekly_report_id, work_item_id: wi.id, field: 'work_item', action: 'delete', operator_id: req.user.uid, summary: `删除工作项「${wi.title || ''}」` });
   res.json({ ok: true });
 });
 
