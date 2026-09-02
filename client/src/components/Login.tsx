@@ -3,17 +3,21 @@ import { useAuth } from '../auth';
 
 export default function Login() {
   const { login, user } = useAuth();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e: any) => {
     e.preventDefault();
     setErr('');
+    setSubmitting(true);
     try {
       await login(username, password);
     } catch (e: any) {
       setErr(e.message || '登录失败');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -42,8 +46,8 @@ export default function Login() {
           <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
           <label htmlFor="password">密码</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-          <button type="submit" className="primary">登 录</button>
-          <p className="hint">默认管理员：admin / admin123</p>
+          <button type="submit" className="primary" disabled={submitting}>{submitting ? '登录中…' : '登 录'}</button>
+          <p className="hint">默认管理员账号：admin / admin123（首次登录后请尽快修改密码）</p>
         </form>
       </div>
     </div>

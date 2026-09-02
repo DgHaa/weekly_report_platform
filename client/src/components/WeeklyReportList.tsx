@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { api, downloadExport } from '../api';
 import { useAuth } from '../auth';
+import { useDialog } from './Dialog';
 import Icon from './icons';
 import UserManagement from './UserManagement';
 
@@ -34,6 +35,7 @@ function readInitialSelected() {
 
 export default function WeeklyReportList() {
   const { user, logout } = useAuth();
+  const dialog = useDialog();
   const [reports, setReports] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(readInitialSelected);
   const [q, setQ] = useState('');
@@ -79,10 +81,23 @@ export default function WeeklyReportList() {
     if (!next) return;
     api.publish(r.id, next.to).then(() => api.listReports().then(setReports));
   };
-  const del = (r: any) => { if (confirm('删除该周报？')) api.deleteReport(r.id).then(() => api.listReports().then(setReports)); };
-  const exp = (r: any, type: 'html' | 'pdf' | 'eml') => {
-    const to = type === 'eml' ? prompt('收件人邮箱（可留空）') || '' : undefined;
-    downloadExport(r.id, type, to, exportTheme).catch((e) => alert(e.message));
+  const del = async (r: any) => {
+    if (await dialog.confirm({ title: '删除周报', message: `确认删除周报「${r.title || r.period_label}」？此操作不可撤销。`, confirmText: '删除', danger: true })) {
+      api.deleteReport(r.id).then(() => api.listReports().then(setReports));
+    }
+  };
+  const exp = async (r: any, type: 'html' | 'pdf' | 'eml') => {
+    try {
+      let to: string | undefined;
+      if (type === 'eml') {
+        const res = await dialog.prompt({ title: '邮件发送', placeholder: '收件人邮箱（可留空）', allowEmpty: true });
+        if (res === null) return;
+        to = res || undefined;
+      }
+      await downloadExport(r.id, type, to, exportTheme);
+    } catch (e: any) {
+      dialog.confirm({ title: '导出失败', message: e?.message || '请重试', confirmText: '知道了' });
+    }
   };
 
   const stats = useMemo(() => ({

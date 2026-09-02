@@ -3,6 +3,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { api, downloadExport, getExportHtml } from '../api';
 import { useAuth } from '../auth';
+import { useDialog } from './Dialog';
 import Kanban from './Kanban';
 import VersionPanel from './VersionPanel';
 import EditHistoryPanel from './EditHistoryPanel';
@@ -26,6 +27,7 @@ function transformPreviewHtml(htmlText: string): string {
 
 export default function WeeklyReportEditor({ reportId, onBack, onReportChange }: { reportId: any; onBack: () => void; onReportChange: (id: any) => void }) {
   const { user } = useAuth();
+  const dialog = useDialog();
   const [report, setReport] = useState<any>(null);
   const [collab, setCollab] = useState<{ ydoc: Y.Doc; provider: any } | null>(null);
   const [filter, setFilter] = useState('all');
@@ -37,6 +39,9 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const [themes, setThemes] = useState<any[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [bottomTab, setBottomTab] = useState<'versions' | 'history'>('versions');
+  const [peers, setPeers] = useState<{ name: string; color: string }[]>([]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const scrollPos = useRef<Record<string, number>>({});
 
   useEffect(() => {
     const ydoc = new Y.Doc();
@@ -50,6 +55,18 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
     return () => { provider.destroy(); ydoc.destroy(); };
   }, [reportId]);
 
+  // 在线协作成员（来自 y-websocket awareness）
+  useEffect(() => {
+    if (!collab) return;
+    const update = () => {
+      const states = Array.from(collab.provider.awareness.getStates().values());
+      setPeers(states.map((s: any) => ({ name: s.user?.name || '匿名', color: s.user?.color || '#888780' })));
+    };
+    update();
+    collab.provider.awareness.on('change', update);
+    return () => collab.provider.awareness.off('change', update);
+  }, [collab]);
+
   // 预览态：拉取真实导出 HTML 并注入预览区（带主题配色与目录锚点），切换风格即时刷新
   useEffect(() => {
     if (mode !== 'preview' || !report) { setPreviewHtml(null); return; }
@@ -60,6 +77,21 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
       .catch(() => { if (!cancelled) setPreviewHtml('<div class="muted-empty">预览生成失败，请重试</div>'); });
     return () => { cancelled = true; };
   }, [mode, report?.theme, reportId]);
+
+  // 编辑↔预览切换：保留各自滚动位置
+  useEffect(() => {
+    const y = scrollPos.current[mode] || 0;
+    const id = window.setTimeout(() => window.scrollTo({ top: y, behavior: 'auto' }), 60);
+    return () => window.clearTimeout(id);
+  }, [mode]);
+
+  // 点击空白处关闭移动端「更多」菜单
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e: any) => { if (!e.target.closest('.topbar-actions')) setMoreOpen(false); };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, [moreOpen]);
 
   const refresh = () => api.getReport(reportId).then(setReport);
 
@@ -108,6 +140,17 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
     showToast(`${label}已保存`);
   };
 
+  const renameWI = (dId: number, wId: number, val: string) => {
+    setReport((r: any) => ({
+      ...r,
+      departments: r.departments.map((dd: any) =>
+        dd.id === dId
+          ? { ...dd, work_items: dd.work_items.map((ww: any) => (ww.id === wId ? { ...ww, title: val } : ww)) }
+          : dd
+      ),
+    }));
+  };
+
   const saveReportField = async (body: any, label: string) => {
     try {
       await api.patchReport(report.id, body);
@@ -130,19 +173,43 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
     showToast(`${label}已保存`);
   };
 
-  const addDept = async () => { const n = prompt('部门名称'); if (n) { await api.addDept(report.id, n); refresh(); } };
-  const delDept = async (did: number) => { if (confirm('删除部门及其工作项？')) { await api.delDept(report.id, did); refresh(); } };
-  const addWorkItem = async (did: number) => { const t = prompt('工作项标题'); if (t) { await api.addWorkItem(did, t); refresh(); } };
-  const delWorkItem = async (wid: number) => { if (confirm('删除该工作项？')) { await api.delWorkItem(wid); refresh(); } };
+  const addDept = async () => {
+    const n = await dialog.prompt({ title: '新增部门', placeholder: '部门名称', message: '请输入部门名称' });
+    if (n === null) return;
+    await api.addDept(report.id, n);
+    refresh();
+  };
+  const delDept = async (did: number, name: string) => {
+    if (await dialog.confirm({ title: '删除部门', message: `确认删除部门「${name}」及其下所有工作项？此操作不可撤销。`, confirmText: '删除', danger: true })) {
+      await api.delDept(report.id, did);
+      refresh();
+    }
+  };
+  const addWorkItem = async (did: number) => {
+    const t = await dialog.prompt({ title: '新增工作项', placeholder: '工作项标题' });
+    if (t === null) return;
+    await api.addWorkItem(did, t);
+    refresh();
+  };
+  const delWorkItem = async (wid: number, title: string) => {
+    if (await dialog.confirm({ title: '删除工作项', message: `确认删除工作项「${title || '未命名'}」？`, confirmText: '删除', danger: true })) {
+      await api.delWorkItem(wid);
+      refresh();
+    }
+  };
 
   // 关键专项进展：多条，每条一个可编辑框
   const addSpecial = async () => {
-    const t = prompt('专项进展标题（可留空，稍后可在框内修改）') || '';
+    const t = await dialog.prompt({ title: '新增专项进展', placeholder: '专项标题（可留空）', allowEmpty: true });
+    if (t === null) return;
     await api.addSpecial(report.id, { title: t });
     refresh();
   };
-  const delSpecial = async (sid: number) => {
-    if (confirm('删除该专项进展？')) { await api.delSpecial(report.id, sid); refresh(); }
+  const delSpecial = async (sid: number, title: string) => {
+    if (await dialog.confirm({ title: '删除专项进展', message: `确认删除专项「${title || '未命名'}」？`, confirmText: '删除', danger: true })) {
+      await api.delSpecial(report.id, sid);
+      refresh();
+    }
   };
   const patchSpecial = async (sid: number, body: any) => {
     try { await api.patchSpecial(report.id, sid, body); }
@@ -165,7 +232,9 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const publish = async () => {
     const to = report.status === 'draft' ? 'collecting' : 'published';
     await api.publish(report.id, to);
+    try { await api.saveVersion(report.id, `自动快照 · ${REPORT_STATUS_LABEL[to] || to}`); } catch { /* 快照失败不影响发布 */ }
     refresh();
+    showToast(`已${REPORT_STATUS_LABEL[to] || to}`);
   };
 
   const copyLast = async () => {
@@ -175,9 +244,15 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
 
   const doExport = async (type: 'html' | 'pdf' | 'eml') => {
     try {
-      const to = type === 'eml' ? prompt('收件人邮箱（可留空）') || '' : undefined;
+      let to: string | undefined;
+      if (type === 'eml') {
+        const r = await dialog.prompt({ title: '邮件发送', placeholder: '收件人邮箱（可留空）', allowEmpty: true });
+        if (r === null) return;
+        to = r || undefined;
+      }
       await downloadExport(report.id, type, to, report.theme);
-    } catch (e: any) { alert(e.message); }
+      showToast('导出已生成');
+    } catch (e: any) { showToast(`导出失败：${e?.message || '请重试'}`, 'err'); }
   };
 
   // 切换导出风格：持久化到该周报，并即时刷新预览
@@ -196,7 +271,6 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const spList = report?.special_progress || [];
 
   // 左侧目录：三大模块 + 各部门工作展示（含每个工作项作为子项）
-  // hooks 必须在 early return 之前，遵守调用顺序。工作项跟随编辑模式筛选/预览模式全部可见。
   const tocItems = useMemo(() => {
     const items: { id: string; label: string; group?: string; sub?: boolean }[] = [
       { id: 'sec-core', label: '一句话核心进展' },
@@ -247,7 +321,6 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
       els.forEach((el) => obs!.observe(el));
     };
     setup();
-    // 覆盖锚点 id 稍晚挂载（编辑模式 Tiptap 同步）的情况
     const retry = window.setTimeout(setup, 240);
     return () => { obs?.disconnect(); window.clearTimeout(retry); };
   }, [report, tocItems]);
@@ -256,33 +329,51 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
 
   const publishLabel = report.status === 'draft' ? '开始收集' : report.status === 'collecting' ? '发布' : '已发布';
 
+  const blurOnEnter = (e: any) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); };
+
+  const switchMode = (next: 'edit' | 'preview') => {
+    scrollPos.current[mode] = window.scrollY;
+    setMode(next);
+  };
+
   return (
     <div>
       <div className="topbar">
         <div className="brand">
           <div className="brand-mark">周</div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="ghost" onClick={onBack}><Icon name="back" /> 返回</button>
-            <input value={report.period_label} onChange={(e) => setReport({ ...report, period_label: e.target.value })} onBlur={() => api.patchReport(report.id, { period_label: report.period_label })} style={{ width: 110, fontWeight: 600 }} aria-label="周期标识" />
-            <input value={report.title} placeholder="周报标题" onChange={(e) => setReport({ ...report, title: e.target.value })} onBlur={() => api.patchReport(report.id, { title: report.title })} style={{ width: 240 }} aria-label="周报标题" />
+            <input className="title-input" value={report.period_label} onChange={(e) => setReport({ ...report, period_label: e.target.value })} onBlur={() => api.patchReport(report.id, { period_label: report.period_label })} onKeyDown={blurOnEnter} aria-label="周期标识" />
+            <input className="title-input grow" value={report.title} placeholder="周报标题" onChange={(e) => setReport({ ...report, title: e.target.value })} onBlur={() => api.patchReport(report.id, { title: report.title })} onKeyDown={blurOnEnter} aria-label="周报标题" />
             <span className={`badge ${report.status}`}>{report.status}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label className="theme-pick" title="导出风格（在预览中即时查看，并随报告保存）">
-            <Icon name="spark" size={15} />
-            <select value={report.theme || 'classic'} onChange={(e) => changeTheme(e.target.value)} aria-label="导出风格">
-              {(themes.length ? themes : [{ key: 'classic', label: '经典蓝紫' }]).map((t: any) => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
-            </select>
-          </label>
-          <button onClick={copyLast}><Icon name="copy" /> 复制模板</button>
-          {user.role === 'admin' && report.status !== 'published' && <button className="primary" onClick={publish}><Icon name="send" /> {publishLabel}</button>}
-          <button onClick={() => doExport('html')}><Icon name="doc" /> HTML</button>
-          <button onClick={() => doExport('pdf')}><Icon name="pdf" /> PDF</button>
-          <button onClick={() => doExport('eml')}><Icon name="mail" /> 邮件</button>
-          <button className={mode === 'preview' ? 'primary' : ''} onClick={() => setMode(mode === 'preview' ? 'edit' : 'preview')}><Icon name="eye" /> {mode === 'preview' ? '编辑' : '预览'}</button>
+        <div className="topbar-actions">
+          {user.role === 'admin' && report.status !== 'published' && (
+            <button className="primary" onClick={publish}><Icon name="send" /> {publishLabel}</button>
+          )}
+          <div className="presence" title={`${peers.length} 人正在协作`}>
+            {peers.slice(0, 5).map((p, i) => (
+              <span key={i} className="avatar" style={{ background: p.color }} title={p.name}>{p.name.slice(0, 1)}</span>
+            ))}
+            {peers.length > 5 && <span className="avatar more">+{peers.length - 5}</span>}
+          </div>
+          <button className="more-btn" onClick={() => setMoreOpen((o) => !o)} aria-expanded={moreOpen} aria-label="更多操作">更多 ▾</button>
+          <div className={`secondary-actions ${moreOpen ? 'open' : ''}`} onClick={() => setMoreOpen(false)}>
+            <label className="theme-pick" title="导出风格（在预览中即时查看，并随报告保存）">
+              <Icon name="spark" size={15} />
+              <select value={report.theme || 'classic'} onChange={(e) => changeTheme(e.target.value)} aria-label="导出风格">
+                {(themes.length ? themes : [{ key: 'classic', label: '经典蓝紫' }]).map((t: any) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </label>
+            <button onClick={copyLast} title="复制上一周期内容作为本次底稿"><Icon name="copy" /> 复制上期</button>
+            <button onClick={() => doExport('html')}><Icon name="doc" /> HTML</button>
+            <button onClick={() => doExport('pdf')}><Icon name="pdf" /> PDF</button>
+            <button onClick={() => doExport('eml')}><Icon name="mail" /> 邮件</button>
+            <button className={mode === 'preview' ? 'primary' : ''} onClick={() => switchMode(mode === 'preview' ? 'edit' : 'preview')}><Icon name="eye" /> {mode === 'preview' ? '编辑' : '预览'}</button>
+          </div>
         </div>
       </div>
 
@@ -318,7 +409,7 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
                 <div className="dep" key={d.id}>
                   <div className="dep-head">
                     <h3><span className="dep-icon"><Icon name="layers" size={16} /></span>{d.name}</h3>
-                    {user.role === 'admin' && <button className="danger" onClick={() => delDept(d.id)}><Icon name="trash" /> 删部门</button>}
+                    {user.role === 'admin' && <button className="danger" onClick={() => delDept(d.id, d.name)}><Icon name="trash" /> 删部门</button>}
                   </div>
                   {collab && (
                     <RichTextEditor ydoc={collab.ydoc} provider={collab.provider} field={`dep-${d.id}-core`} workItemId={d.id} weeklyReportId={report.id} initialHTML={d.core_html || ''} userName={user.display_name} onSave={(h) => saveDeptField(d.id, { core_html: h }, '核心进展')} />
@@ -340,7 +431,7 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
                     <div className="sp-actions">
                       <button className="ghost" disabled={idx === 0} onClick={() => moveSpecial(s.id, -1)} title="上移">↑</button>
                       <button className="ghost" disabled={idx === report.special_progress.length - 1} onClick={() => moveSpecial(s.id, 1)} title="下移">↓</button>
-                      {user.role === 'admin' && <button className="danger" onClick={() => delSpecial(s.id)}><Icon name="trash" size={14} /> 删</button>}
+                      {user.role === 'admin' && <button className="danger" onClick={() => delSpecial(s.id, s.title)}><Icon name="trash" size={14} /> 删</button>}
                     </div>
                   </div>
                   {collab && (
@@ -361,13 +452,13 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
                   {items.map((w: any) => (
                     <div className="wi" key={w.id} id={`sec-wi-${w.id}`}>
                       <div className="wi-head">
-                        <input className="wi-title" value={w.title} onChange={(e) => setReport((r: any) => ({ ...r, departments: r.departments.map((dd: any) => dd.id === d.id ? { ...dd, work_items: dd.work_items.map((ww: any) => ww.id === w.id ? { ...ww, title: e.target.value } : ww) } : dd) }))} onBlur={() => patchWI(w.id, { title: w.title })} />
+                        <input className="wi-title" value={w.title} onChange={(e) => renameWI(d.id, w.id, e.target.value)} onBlur={() => patchWI(w.id, { title: w.title })} />
                         <select className="status-select" value={w.status} onChange={(e) => patchWI(w.id, { status: e.target.value })}>
                           <option value="blank">未填写</option>
                           <option value="stale">未更新</option>
                           <option value="done">已更新</option>
                         </select>
-                        <button className="danger" onClick={() => delWorkItem(w.id)}>删</button>
+                        <button className="danger" onClick={() => delWorkItem(w.id, w.title)}>删</button>
                       </div>
                       <div className="lbl" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>本周进展</div>
                       {collab && (

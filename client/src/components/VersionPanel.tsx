@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './icons';
+import { useDialog } from './Dialog';
 
 export default function VersionPanel({ reportId, onRestored }: { reportId: any; onRestored?: () => void }) {
+  const dialog = useDialog();
   const [versions, setVersions] = useState<any[]>([]);
   const [sel, setSel] = useState<number[]>([]);
   const [diff, setDiff] = useState<any>(null);
@@ -19,7 +21,7 @@ export default function VersionPanel({ reportId, onRestored }: { reportId: any; 
     setDiff(r);
   };
   const restore = async (id: number) => {
-    if (!confirm('恢复该版本将覆盖当前内容，确定？')) return;
+    if (!await dialog.confirm({ title: '恢复版本', message: '恢复该版本将覆盖当前内容，且会留下一条编辑记录。确定继续？', confirmText: '恢复', danger: true })) return;
     await api.restoreVersion(reportId, id);
     setDiff(null); setSel([]); load(); onRestored?.();
   };
@@ -45,8 +47,12 @@ export default function VersionPanel({ reportId, onRestored }: { reportId: any; 
           {diff.diffs.length === 0 && <div className="diff">两个版本无差异</div>}
           {diff.diffs.map((d: any, i: number) => (
             <div className="diff" key={i}>
-              [{d.department}] {d.work_item} · {d.field}：<br />
-              <del>{String(d.from || '').slice(0, 100)}</del> → <ins>{String(d.to || '').slice(0, 100)}</ins>
+              <div className="diff-head">[{d.department}] {d.work_item} · {d.field}</div>
+              <div className="diff-body">
+                <del>{String(d.from || '')}</del>
+                <span className="diff-arrow">→</span>
+                <ins>{String(d.to || '')}</ins>
+              </div>
             </div>
           ))}
         </div>

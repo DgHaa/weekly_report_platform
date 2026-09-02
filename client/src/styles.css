@@ -968,3 +968,48 @@ button.secondary:hover { background: var(--primary-soft); border-color: var(--pr
   .editor-toc .toc-link.toc-sub { padding-left: 12px; }
   .editor-toc .toc-link.toc-sub .toc-dot { display: none; }
 }
+
+/* ===== 弹窗 Dialog（替换原生 prompt/confirm/alert） ===== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(20,22,30,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.modal-card { background: #fff; border-radius: 12px; width: min(420px, 100%); padding: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.22); animation: modal-in .16s ease; }
+@keyframes modal-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.modal-msg { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap; }
+.modal-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 8px; font-size: 14px; margin-bottom: 16px; box-sizing: border-box; }
+.modal-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ===== 在线协作头像 ===== */
+.presence { display: flex; align-items: center; }
+.presence .avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; margin-left: -6px; border: 2px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+.presence .avatar:first-child { margin-left: 0; }
+.presence .avatar.more { background: var(--muted); }
+
+/* ===== 标题 / 周期输入 ===== */
+.title-input { width: 110px; font-weight: 600; max-width: 100%; }
+.title-input.grow { width: 240px; flex: 1 1 200px; min-width: 120px; }
+
+/* ===== 顶栏次级操作 + 移动端「更多」菜单 ===== */
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; }
+.secondary-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.more-btn { display: none; }
+@media (max-width: 860px) {
+  .more-btn { display: inline-flex; }
+  .secondary-actions { display: none; }
+  .secondary-actions.open { display: flex; position: absolute; top: calc(100% + 8px); right: 0; flex-direction: column; align-items: stretch; background: #fff; border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.18); z-index: 50; min-width: 180px; }
+  .secondary-actions.open .theme-pick { width: 100%; }
+}
+
+/* ===== 富文本工具栏增强 ===== */
+.rte-bar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.rte-sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
+.rte-bar button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.rte-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dot.uploading { color: var(--primary); font-weight: 500; }
+
+/* ===== 版本对比全文（去掉 100 字截断） ===== */
+.diff-head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.diff-body { max-height: 200px; overflow: auto; background: #fafafa; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.6; word-break: break-word; }
+.diff-body del { color: #a32d2d; background: #fcebeb; text-decoration: line-through; margin-right: 6px; }
+.diff-body ins { color: #27500a; background: #eaf3de; text-decoration: none; margin-left: 6px; }
+.diff-arrow { color: var(--muted); margin: 0 4px; }
