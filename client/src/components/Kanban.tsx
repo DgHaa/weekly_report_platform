@@ -30,6 +30,10 @@ export default function Kanban({ report }: { report: any }) {
       return next;
     });
 
+  const allCollapsed = report.departments.length > 0 && report.departments.every((d: any) => collapsed.has(d.id));
+  const setAll = (state: boolean) =>
+    setCollapsed(state ? new Set(report.departments.map((d: any) => d.id)) : new Set());
+
   const rows = report.departments.map((d: any) => {
     const vis = pick(d.work_items);
     const total = vis.length;
@@ -56,12 +60,20 @@ export default function Kanban({ report }: { report: any }) {
         <div className="kb-bar"><div className="kb-fill" style={{ width: `${pct(overallDone, overallTotal)}%` }} /></div>
         <span className="kb-count">{overallDone}/{overallTotal}</span>
       </div>
-      {rows.map((r: any) => (
-        <div className="kb-row" key={r.id}>
-          <button className="kb-collapse" onClick={() => toggleDept(r.id)} title={r.isCollapsed ? '展开' : '折叠'} aria-expanded={!r.isCollapsed}>
-            {r.isCollapsed ? '▸' : '▾'}
+      {report.departments.length > 0 && (
+        <div className="kb-collapse-all">
+          <span className="kb-collapse-tip">点部门名或 ▸ 可折叠该行</span>
+          <button className="kb-link" onClick={() => setAll(!allCollapsed)}>
+            {allCollapsed ? '全部展开' : '全部折叠'}
           </button>
-          <b className="kb-dept-name" style={{ width: 108, fontSize: 13, fontWeight: 400 }} onClick={() => toggleDept(r.id)}>
+        </div>
+      )}
+      {rows.map((r: any) => (
+        <div className={`kb-row ${r.isCollapsed ? 'is-collapsed' : ''}`} key={r.id}>
+          <button className="kb-collapse" onClick={() => toggleDept(r.id)} title={r.isCollapsed ? '展开' : '折叠'} aria-expanded={!r.isCollapsed}>
+            {r.isCollapsed ? '▶' : '▼'}
+          </button>
+          <b className="kb-dept-name" style={{ width: 108, fontSize: 13, fontWeight: 500 }} onClick={() => toggleDept(r.id)}>
             {r.name}
           </b>
           {!r.isCollapsed && (
@@ -70,6 +82,7 @@ export default function Kanban({ report }: { report: any }) {
               <span className="kb-count">{r.done}/{r.total}</span>
             </>
           )}
+          {r.isCollapsed && <span className="kb-collapsed-tag">已折叠</span>}
         </div>
       ))}
       {filter !== 'all' && (
