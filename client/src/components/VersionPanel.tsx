@@ -26,7 +26,6 @@ export default function VersionPanel({ reportId, onRestored }: { reportId: any; 
 
   return (
     <div className="version-panel">
-      <div className="section-title"><span className="si"><Icon name="history" size={16} /></span>版本管理</div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <input placeholder="版本备注" value={note} onChange={(e) => setNote(e.target.value)} aria-label="版本备注" />
         <button className="primary" onClick={save}><Icon name="plus" /> 保存快照</button>

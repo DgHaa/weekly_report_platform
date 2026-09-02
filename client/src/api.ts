@@ -49,7 +49,8 @@ export const api = {
   listUsers: () => req('GET', '/auth/'),
   createUser: (body: any) => req('POST', '/auth/', body),
   deleteUser: (id: any) => req('DELETE', `/auth/${id}`),
-  listThemes: () => req('GET', '/weekly-reports/themes')
+  listThemes: () => req('GET', '/weekly-reports/themes'),
+  getHistory: (id: any, q?: any) => req('GET', '/weekly-reports/' + id + '/history' + (q ? `?${new URLSearchParams(q)}` : ''))
 };
 
 // 取导出 HTML 文本（内联，无附件头），用于编辑器内预览

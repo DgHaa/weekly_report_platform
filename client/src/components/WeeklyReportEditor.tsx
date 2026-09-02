@@ -5,6 +5,7 @@ import { api, downloadExport, getExportHtml } from '../api';
 import { useAuth } from '../auth';
 import Kanban from './Kanban';
 import VersionPanel from './VersionPanel';
+import EditHistoryPanel from './EditHistoryPanel';
 import RichTextEditor from './RichTextEditor';
 import Icon from './icons';
 
@@ -35,6 +36,7 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const providerRef = useRef<any>(null);
   const [themes, setThemes] = useState<any[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [bottomTab, setBottomTab] = useState<'versions' | 'history'>('versions');
 
   useEffect(() => {
     const ydoc = new Y.Doc();
@@ -382,7 +384,19 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
               );
             })}
 
-            <VersionPanel reportId={report.id} onRestored={refresh} />
+            <div className="bottom-tabs">
+              <div className="btab-head">
+                <button className={bottomTab === 'versions' ? 'active' : ''} onClick={() => setBottomTab('versions')}>
+                  <Icon name="history" size={15} /> 版本管理
+                </button>
+                <button className={bottomTab === 'history' ? 'active' : ''} onClick={() => setBottomTab('history')}>
+                  <Icon name="clock" size={15} /> 编辑记录
+                </button>
+              </div>
+              {bottomTab === 'versions'
+                ? <VersionPanel reportId={report.id} onRestored={refresh} />
+                : <EditHistoryPanel reportId={report.id} />}
+            </div>
           </>
           )}
           </div>

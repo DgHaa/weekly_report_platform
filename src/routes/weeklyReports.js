@@ -11,6 +11,27 @@ r.get('/themes', (req, res) => {
   res.json(themeList());
 });
 
+// 字段级编辑历史：联表用户显示名，支持 field/action/limit 过滤
+r.get('/:id/history', (req, res) => {
+  const rep = db.prepare('SELECT id FROM weekly_reports WHERE id=?').get(req.params.id);
+  if (!rep) return res.status(404).json({ error: 'not found' });
+  const clauses = ['h.weekly_report_id=?'];
+  const params = [rep.id];
+  if (req.query.field) { clauses.push('h.field=?'); params.push(req.query.field); }
+  if (req.query.action) { clauses.push('h.action=?'); params.push(req.query.action); }
+  const lim = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+  const rows = db.prepare(
+    `SELECT h.id, h.field, h.action, h.work_item_id, h.operator_id, h.created_at, h.summary,
+            u.display_name AS operator_name, u.username AS operator_username
+       FROM edit_history h
+       LEFT JOIN users u ON h.operator_id = u.id
+      WHERE ${clauses.join(' AND ')}
+      ORDER BY h.created_at DESC
+      LIMIT ${lim}`
+  ).all(...params);
+  res.json(rows);
+});
+
 r.get('/', (req, res) => {
   const { status, q, period } = req.query;
   let sql = 'SELECT * FROM weekly_reports WHERE 1=1';
@@ -123,6 +144,7 @@ r.post('/:id/departments', (req, res) => {
   if (!name) return res.status(400).json({ error: 'missing name' });
   const max = db.prepare('SELECT COALESCE(MAX(sort_order),-1) m FROM departments WHERE weekly_report_id=?').get(rep.id).m;
   const di = db.prepare('INSERT INTO departments (weekly_report_id,name,sort_order,is_default) VALUES (?,?,?,0)').run(rep.id, name, max + 1);
+  logHistory({ weekly_report_id: rep.id, field: 'department', action: 'create', operator_id: req.user.uid, summary: `新增部门 ${name}` });
   res.json({ id: di.lastInsertRowid });
 });
 
@@ -132,11 +154,16 @@ r.patch('/departments/:did', (req, res) => {
   const { name, core_html } = req.body || {};
   db.prepare('UPDATE departments SET name=?, core_html=? WHERE id=?')
     .run(name ?? dep.name, core_html ?? dep.core_html, dep.id);
+  if (core_html !== undefined) {
+    logHistory({ weekly_report_id: dep.weekly_report_id, field: 'department', action: 'update', operator_id: req.user.uid, summary: `编辑「${dep.name}」核心进展` });
+  }
   res.json({ ok: true });
 });
 
 r.delete('/:id/departments/:did', requireAdmin, (req, res) => {
+  const d = db.prepare('SELECT name FROM departments WHERE id=?').get(req.params.did);
   db.prepare('DELETE FROM departments WHERE id=? AND weekly_report_id=?').run(req.params.did, req.params.id);
+  logHistory({ weekly_report_id: rep.id, field: 'department', action: 'delete', operator_id: req.user.uid, summary: `删除部门 ${d?.name || ''}` });
   res.json({ ok: true });
 });
 
@@ -148,6 +175,7 @@ r.post('/departments/:did/work-items', (req, res) => {
   const max = db.prepare('SELECT COALESCE(MAX(sort_order),-1) m FROM work_items WHERE department_id=?').get(dep.id).m;
   const wi = db.prepare('INSERT INTO work_items (department_id,title,status,sort_order,updated_at) VALUES (?,?,?,?,?)')
     .run(dep.id, title || '', 'blank', max + 1, now);
+  logHistory({ weekly_report_id: dep.weekly_report_id, work_item_id: wi.lastInsertRowid, field: 'work_item', action: 'create', operator_id: req.user.uid, summary: `新增工作项 ${title || ''}` });
   res.json({ id: wi.lastInsertRowid });
 });
 
@@ -167,7 +195,9 @@ r.patch('/work-items/:wid', (req, res) => {
 });
 
 r.delete('/work-items/:wid', requireAdmin, (req, res) => {
+  const wi = db.prepare('SELECT w.id, d.weekly_report_id FROM work_items w JOIN departments d ON w.department_id=d.id WHERE w.id=?').get(req.params.wid);
   db.prepare('DELETE FROM work_items WHERE id=?').run(req.params.wid);
+  if (wi) logHistory({ weekly_report_id: wi.weekly_report_id, work_item_id: wi.id, field: 'work_item', action: 'delete', operator_id: req.user.uid, summary: '删除工作项' });
   res.json({ ok: true });
 });
 
@@ -190,6 +220,7 @@ r.patch('/:id/special-progress/:sid', (req, res) => {
   const { title, content_html, sort_order } = req.body || {};
   db.prepare('UPDATE special_progress SET title=?, content_html=?, sort_order=?, updated_at=? WHERE id=?')
     .run(title ?? sp.title, content_html ?? sp.content_html, sort_order ?? sp.sort_order, new Date().toISOString(), sp.id);
+  logHistory({ weekly_report_id: sp.weekly_report_id, field: 'special_progress', action: 'update', operator_id: req.user.uid, summary: `编辑专项「${sp.title}」` });
   res.json({ ok: true });
 });
 
