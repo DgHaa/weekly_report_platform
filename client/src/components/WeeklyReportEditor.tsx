@@ -39,7 +39,7 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const [themes, setThemes] = useState<any[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [bottomTab, setBottomTab] = useState<'versions' | 'history'>('versions');
-  const [peers, setPeers] = useState<{ name: string; color: string }[]>([]);
+  const [peers, setPeers] = useState<{ name: string; color: string; isSelf: boolean }[]>([]);
   const [moreOpen, setMoreOpen] = useState(false);
   const scrollPos = useRef<Record<string, number>>({});
 
@@ -59,8 +59,18 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   useEffect(() => {
     if (!collab) return;
     const update = () => {
-      const states = Array.from(collab.provider.awareness.getStates().values());
-      setPeers(states.map((s: any) => ({ name: s.user?.name || '匿名', color: s.user?.color || '#888780' })));
+      const aw = collab.provider.awareness;
+      const localId = aw.clientID;
+      // 按用户名去重；同名时优先保留"自己"这一条
+      const byName = new Map<string, { name: string; color: string; isSelf: boolean }>();
+      (Array.from(aw.getStates().entries()) as [number, any][]).forEach(([id, s]) => {
+        const name = s?.user?.name || '匿名';
+        const color = s?.user?.color || '#888780';
+        const isSelf = id === localId;
+        const existing = byName.get(name);
+        if (!existing || (isSelf && !existing.isSelf)) byName.set(name, { name, color, isSelf });
+      });
+      setPeers(Array.from(byName.values()));
     };
     update();
     collab.provider.awareness.on('change', update);
@@ -353,8 +363,11 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
             <button className="primary" onClick={publish}><Icon name="send" /> {publishLabel}</button>
           )}
           <div className="presence" title={`${peers.length} 人正在协作`}>
-            {peers.slice(0, 5).map((p, i) => (
-              <span key={i} className="avatar" style={{ background: p.color }} title={p.name}>{p.name.slice(0, 1)}</span>
+            {peers.slice(0, 5).map((p) => (
+              <span key={p.name} className={`avatar ${p.isSelf ? 'is-self' : ''}`} style={{ background: p.color }} title={`${p.name}${p.isSelf ? '（你）' : ''}`}>
+                {p.name.slice(0, 1)}
+                {p.isSelf && <span className="self-dot" />}
+              </span>
             ))}
             {peers.length > 5 && <span className="avatar more">+{peers.length - 5}</span>}
           </div>
