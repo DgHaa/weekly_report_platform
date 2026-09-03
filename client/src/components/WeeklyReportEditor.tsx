@@ -41,6 +41,7 @@ export default function WeeklyReportEditor({ reportId, initialReport, onBack, on
   const [bottomTab, setBottomTab] = useState<'versions' | 'history'>('versions');
   const [peers, setPeers] = useState<{ name: string; color: string; isSelf: boolean }[]>([]);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [copying, setCopying] = useState(false);
   const scrollPos = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -280,11 +281,26 @@ export default function WeeklyReportEditor({ reportId, initialReport, onBack, on
   };
 
   const copyLast = async () => {
+    if (copying) return;
+    setCopying(true);
     try {
-      const nr = await api.copyLast(report.id, {});
+      const name = await dialog.prompt({
+        title: '复制为新周报',
+        message: '将复制当前周报的全部部门与内容，生成一份新草稿。可修改新周报标题：',
+        placeholder: `${report.title || report.period_label}（副本）`,
+        allowEmpty: true,
+      });
+      if (name === null) { setCopying(false); return; } // 取消
+      const nr = await api.copyLast(report.id, {
+        period_label: report.period_label,
+        title: name || `${report.title || report.period_label}（副本）`,
+      });
       onReportChange(nr.id);
+      showToast(`已复制为新周报：${nr.title || nr.period_label}`, 'ok');
     } catch (e: any) {
-      showToast(`复制上期失败：${e?.message || '请重试'}`, 'err');
+      showToast(`复制失败：${e?.message || '请重试'}`, 'err');
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -417,7 +433,7 @@ export default function WeeklyReportEditor({ reportId, initialReport, onBack, on
                 ))}
               </select>
             </label>
-            <button onClick={copyLast} title="复制上一周期内容作为本次底稿"><Icon name="copy" /> 复制上期</button>
+            <button onClick={copyLast} disabled={copying} title="复制当前周报的全部内容，生成一份新草稿（同周期）"><Icon name="copy" /> {copying ? '复制中…' : '复制上期'}</button>
             <button onClick={() => doExport('html')}><Icon name="doc" /> HTML</button>
             <button onClick={() => doExport('pdf')}><Icon name="pdf" /> PDF</button>
             <button onClick={() => doExport('eml')}><Icon name="mail" /> 邮件</button>

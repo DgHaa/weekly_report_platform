@@ -92,7 +92,10 @@ export default function WeeklyReportList() {
   };
   const copyFrom = async (id: any) => {
     try {
-      const nr = await api.copyLast(id, {});
+      const src = reports.find((x) => x.id === id);
+      const nr = await api.copyLast(id, { period_label: src?.period_label });
+      setReports((prev) => [nr, ...prev]); // 乐观更新：列表立即出现新副本
+      setInitialReport(nr);
       setSelected(nr.id);
     } catch (err: any) {
       dialog.confirm({ title: '复制失败', message: err?.message || '请重试', confirmText: '知道了' });

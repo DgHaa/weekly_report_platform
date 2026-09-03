@@ -105,11 +105,11 @@ r.post('/:id/copy-last', (req, res) => {
   const src = getReportTree(req.params.id);
   if (!src) return res.status(404).json({ error: 'not found' });
   const now = new Date().toISOString();
-  const label = req.body?.period_label || isoWeek(new Date(Date.now() + 7 * 864e5));
+  const label = req.body?.period_label || src.period_label;
   const tx = db.transaction(() => {
     const info = db
       .prepare('INSERT INTO weekly_reports (period_label,title,status,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?)')
-      .run(label, req.body?.title || `${src.period_label} 复制`, 'draft', req.user.uid, now, now);
+      .run(label, req.body?.title || `${src.title || src.period_label}（副本）`, 'draft', req.user.uid, now, now);
     const rid = info.lastInsertRowid;
     const insDep = db.prepare('INSERT INTO departments (weekly_report_id,name,sort_order,is_default) VALUES (?,?,?,?)');
     const insWI = db.prepare('INSERT INTO work_items (department_id,title,progress_html,plan_html,status,sort_order,updated_at) VALUES (?,?,?,?,?,?,?)');
