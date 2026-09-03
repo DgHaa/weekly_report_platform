@@ -43,6 +43,8 @@ export default function WeeklyReportList() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   const [showUsers, setShowUsers] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [initialReport, setInitialReport] = useState<any>(null);
   const [themes, setThemes] = useState<Array<{ key: string; label: string }>>([{ key: 'classic', label: '经典蓝紫' }]);
   const [exportTheme, setExportTheme] = useState('classic');
 
@@ -75,11 +77,17 @@ export default function WeeklyReportList() {
   }, [loading, reports, selected]);
 
   const create = async () => {
+    if (creating) return;
+    setCreating(true);
     try {
       const r = await api.createReport({});
+      setReports((prev) => [r, ...prev]); // 乐观更新：列表立即出现新周报
+      setInitialReport(r);                // 用完整报告作为编辑器首屏数据，跳过等待
       setSelected(r.id);
     } catch (err: any) {
       dialog.confirm({ title: '创建失败', message: err?.message || '请重试', confirmText: '知道了' });
+    } finally {
+      setCreating(false);
     }
   };
   const copyFrom = async (id: any) => {
@@ -134,7 +142,12 @@ export default function WeeklyReportList() {
   if (selected !== null) {
     return (
       <Suspense fallback={<div className="container loading">加载编辑器…</div>}>
-        <WeeklyReportEditor reportId={selected} onBack={() => { setSelected(null); api.listReports().then(setReports); }} onReportChange={(id: any) => setSelected(id)} />
+        <WeeklyReportEditor
+          reportId={selected}
+          initialReport={initialReport}
+          onBack={() => { setSelected(null); setInitialReport(null); api.listReports().then(setReports); }}
+          onReportChange={(id: any) => setSelected(id)}
+        />
       </Suspense>
     );
   }
@@ -151,7 +164,7 @@ export default function WeeklyReportList() {
         </div>
         <div className="spacer" />
         <span className="user-chip"><b>{user.display_name}</b> · {user.role}</span>
-        {isAdmin && <button className="primary" onClick={create}><Icon name="plus" size={15} /> 新建周报</button>}
+        {isAdmin && <button className="primary" onClick={create} disabled={creating}><Icon name="plus" size={15} /> {creating ? '创建中…' : '新建周报'}</button>}
         {isAdmin && <button className="ghost" onClick={() => setShowUsers(true)}><Icon name="user" size={15} /> 用户管理</button>}
         <button className="ghost" onClick={logout} aria-label="退出登录"><Icon name="logout" /> 退出</button>
       </div>

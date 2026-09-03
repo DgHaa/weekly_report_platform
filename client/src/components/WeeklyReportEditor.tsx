@@ -25,10 +25,10 @@ function transformPreviewHtml(htmlText: string): string {
   return `<style>${css}</style><div class="theme-preview">${body}</div>`;
 }
 
-export default function WeeklyReportEditor({ reportId, onBack, onReportChange }: { reportId: any; onBack: () => void; onReportChange: (id: any) => void }) {
+export default function WeeklyReportEditor({ reportId, initialReport, onBack, onReportChange }: { reportId: any; initialReport?: any; onBack: () => void; onReportChange: (id: any) => void }) {
   const { user } = useAuth();
   const dialog = useDialog();
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<any>(initialReport || null);
   const [collab, setCollab] = useState<{ ydoc: Y.Doc; provider: any } | null>(null);
   const [filter, setFilter] = useState('all');
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
