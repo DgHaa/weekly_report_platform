@@ -105,7 +105,9 @@ export default function WeeklyReportList() {
   const publish = (r: any) => {
     const next = statusNext[r.status];
     if (!next) return;
-    api.publish(r.id, next.to).then(() => api.listReports().then(setReports));
+    api.publish(r.id, next.to)
+      .then(() => api.listReports().then(setReports))
+      .catch((e: any) => dialog.confirm({ title: '发布失败', message: e?.message || '请重试', confirmText: '知道了' }));
   };
   const del = async (r: any) => {
     if (await dialog.confirm({ title: '删除周报', message: `确认删除周报「${r.title || r.period_label}」？此操作不可撤销。`, confirmText: '删除', danger: true })) {

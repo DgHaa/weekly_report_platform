@@ -186,25 +186,41 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const addDept = async () => {
     const n = await dialog.prompt({ title: '新增部门', placeholder: '部门名称', message: '请输入部门名称' });
     if (n === null) return;
-    await api.addDept(report.id, n);
-    refresh();
+    try {
+      await api.addDept(report.id, n);
+      refresh();
+    } catch (e: any) {
+      showToast(`新增部门失败：${e?.message || '请重试'}`, 'err');
+    }
   };
   const delDept = async (did: number, name: string) => {
     if (await dialog.confirm({ title: '删除部门', message: `确认删除部门「${name}」及其下所有工作项？此操作不可撤销。`, confirmText: '删除', danger: true })) {
-      await api.delDept(report.id, did);
-      refresh();
+      try {
+        await api.delDept(report.id, did);
+        refresh();
+      } catch (e: any) {
+        showToast(`删除部门失败：${e?.message || '请重试'}`, 'err');
+      }
     }
   };
   const addWorkItem = async (did: number) => {
     const t = await dialog.prompt({ title: '新增工作项', placeholder: '工作项标题' });
     if (t === null) return;
-    await api.addWorkItem(did, t);
-    refresh();
+    try {
+      await api.addWorkItem(did, t);
+      refresh();
+    } catch (e: any) {
+      showToast(`新增工作项失败：${e?.message || '请重试'}`, 'err');
+    }
   };
   const delWorkItem = async (wid: number, title: string) => {
     if (await dialog.confirm({ title: '删除工作项', message: `确认删除工作项「${title || '未命名'}」？`, confirmText: '删除', danger: true })) {
-      await api.delWorkItem(wid);
-      refresh();
+      try {
+        await api.delWorkItem(wid);
+        refresh();
+      } catch (e: any) {
+        showToast(`删除工作项失败：${e?.message || '请重试'}`, 'err');
+      }
     }
   };
 
@@ -212,13 +228,21 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
   const addSpecial = async () => {
     const t = await dialog.prompt({ title: '新增专项进展', placeholder: '专项标题（可留空）', allowEmpty: true });
     if (t === null) return;
-    await api.addSpecial(report.id, { title: t });
-    refresh();
+    try {
+      await api.addSpecial(report.id, { title: t });
+      refresh();
+    } catch (e: any) {
+      showToast(`新增专项失败：${e?.message || '请重试'}`, 'err');
+    }
   };
   const delSpecial = async (sid: number, title: string) => {
     if (await dialog.confirm({ title: '删除专项进展', message: `确认删除专项「${title || '未命名'}」？`, confirmText: '删除', danger: true })) {
-      await api.delSpecial(report.id, sid);
-      refresh();
+      try {
+        await api.delSpecial(report.id, sid);
+        refresh();
+      } catch (e: any) {
+        showToast(`删除专项失败：${e?.message || '请重试'}`, 'err');
+      }
     }
   };
   const patchSpecial = async (sid: number, body: any) => {
@@ -232,24 +256,42 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
     const j = i + dir;
     if (j < 0 || j >= list.length) return;
     const a = list[i], b = list[j];
-    await Promise.all([
-      api.patchSpecial(report.id, a.id, { sort_order: b.sort_order }),
-      api.patchSpecial(report.id, b.id, { sort_order: a.sort_order }),
-    ]);
-    refresh();
+    try {
+      await Promise.all([
+        api.patchSpecial(report.id, a.id, { sort_order: b.sort_order }),
+        api.patchSpecial(report.id, b.id, { sort_order: a.sort_order }),
+      ]);
+      refresh();
+    } catch (e: any) {
+      showToast(`移动专项失败：${e?.message || '请重试'}`, 'err');
+    }
   };
 
   const publish = async () => {
     const to = report.status === 'draft' ? 'collecting' : 'published';
-    await api.publish(report.id, to);
-    try { await api.saveVersion(report.id, `自动快照 · ${REPORT_STATUS_LABEL[to] || to}`); } catch { /* 快照失败不影响发布 */ }
-    refresh();
-    showToast(`已${REPORT_STATUS_LABEL[to] || to}`);
+    try {
+      await api.publish(report.id, to);
+      try { await api.saveVersion(report.id, `自动快照 · ${REPORT_STATUS_LABEL[to] || to}`); } catch { /* 快照失败不影响发布 */ }
+      refresh();
+      showToast(`已${REPORT_STATUS_LABEL[to] || to}`);
+    } catch (e: any) {
+      showToast(`发布失败：${e?.message || '请重试'}`, 'err');
+    }
   };
 
   const copyLast = async () => {
-    const nr = await api.copyLast(report.id, {});
-    onReportChange(nr.id);
+    try {
+      const nr = await api.copyLast(report.id, {});
+      onReportChange(nr.id);
+    } catch (e: any) {
+      const existingId = e?.body?.existing_id;
+      if (existingId) {
+        onReportChange(existingId);
+        dialog.confirm({ title: '目标周期已存在', message: '该周期周报已经存在，已为你打开已有周报。', confirmText: '知道了' });
+      } else {
+        showToast(`复制上期失败：${e?.message || '请重试'}`, 'err');
+      }
+    }
   };
 
   const doExport = async (type: 'html' | 'pdf' | 'eml') => {
@@ -353,8 +395,8 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
           <div className="brand-mark">周</div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="ghost" onClick={onBack}><Icon name="back" /> 返回</button>
-            <input className="title-input" value={report.period_label} onChange={(e) => setReport({ ...report, period_label: e.target.value })} onBlur={() => api.patchReport(report.id, { period_label: report.period_label })} onKeyDown={blurOnEnter} aria-label="周期标识" />
-            <input className="title-input grow" value={report.title} placeholder="周报标题" onChange={(e) => setReport({ ...report, title: e.target.value })} onBlur={() => api.patchReport(report.id, { title: report.title })} onKeyDown={blurOnEnter} aria-label="周报标题" />
+            <input className="title-input" value={report.period_label} onChange={(e) => setReport({ ...report, period_label: e.target.value })} onBlur={() => api.patchReport(report.id, { period_label: report.period_label }).catch((e: any) => showToast(`保存失败：${e?.message || '请重试'}`, 'err'))} onKeyDown={blurOnEnter} aria-label="周期标识" />
+            <input className="title-input grow" value={report.title} placeholder="周报标题" onChange={(e) => setReport({ ...report, title: e.target.value })} onBlur={() => api.patchReport(report.id, { title: report.title }).catch((e: any) => showToast(`保存失败：${e?.message || '请重试'}`, 'err'))} onKeyDown={blurOnEnter} aria-label="周报标题" />
             <span className={`badge ${report.status}`}>{report.status}</span>
           </div>
         </div>

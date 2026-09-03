@@ -13,17 +13,32 @@ export default function VersionPanel({ reportId, onRestored }: { reportId: any; 
   const load = () => api.listVersions(reportId).then(setVersions);
   useEffect(() => { load(); }, [reportId]);
 
-  const save = async () => { await api.saveVersion(reportId, note); setNote(''); load(); };
+  const save = async () => {
+    try {
+      await api.saveVersion(reportId, note);
+      setNote(''); load();
+    } catch (e: any) {
+      dialog.confirm({ title: '保存快照失败', message: e?.message || '请重试', confirmText: '知道了' });
+    }
+  };
   const toggle = (id: number) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id].slice(-2)));
   const compare = async () => {
     if (sel.length !== 2) return;
-    const r = await api.compareVersions(reportId, sel[0], sel[1]);
-    setDiff(r);
+    try {
+      const r = await api.compareVersions(reportId, sel[0], sel[1]);
+      setDiff(r);
+    } catch (e: any) {
+      dialog.confirm({ title: '对比失败', message: e?.message || '请重试', confirmText: '知道了' });
+    }
   };
   const restore = async (id: number) => {
     if (!await dialog.confirm({ title: '恢复版本', message: '恢复该版本将覆盖当前内容，且会留下一条编辑记录。确定继续？', confirmText: '恢复', danger: true })) return;
-    await api.restoreVersion(reportId, id);
-    setDiff(null); setSel([]); load(); onRestored?.();
+    try {
+      await api.restoreVersion(reportId, id);
+      setDiff(null); setSel([]); load(); onRestored?.();
+    } catch (e: any) {
+      dialog.confirm({ title: '恢复失败', message: e?.message || '请重试', confirmText: '知道了' });
+    }
   };
 
   return (
