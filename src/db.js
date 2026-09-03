@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS weekly_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  period_label TEXT UNIQUE NOT NULL,
+  period_label TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'draft',
   created_by INTEGER,

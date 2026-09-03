@@ -46,10 +46,6 @@ r.get('/', (req, res) => {
 r.post('/', (req, res) => {
   const { period_label, title } = req.body || {};
   const label = period_label || isoWeek();
-  const existing = db.prepare('SELECT id FROM weekly_reports WHERE period_label=?').get(label);
-  if (existing) {
-    return res.status(409).json({ error: 'period_label exists', existing_id: existing.id });
-  }
   const now = new Date().toISOString();
   const info = db
     .prepare('INSERT INTO weekly_reports (period_label,title,status,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?)')
@@ -77,11 +73,6 @@ r.patch('/:id', (req, res) => {
   const rep = db.prepare('SELECT * FROM weekly_reports WHERE id=?').get(req.params.id);
   if (!rep) return res.status(404).json({ error: 'not found' });
   const { title, period_label, highlights_html, theme } = req.body || {};
-  if (period_label && period_label !== rep.period_label) {
-    if (db.prepare('SELECT id FROM weekly_reports WHERE period_label=? AND id!=?').get(period_label, rep.id)) {
-      return res.status(409).json({ error: 'period_label exists' });
-    }
-  }
   const nextTheme = theme !== undefined ? getTheme(theme).key : rep.theme;
   db.prepare('UPDATE weekly_reports SET title=?, period_label=?, highlights_html=?, theme=?, updated_at=? WHERE id=?')
     .run(title ?? rep.title, period_label ?? rep.period_label, highlights_html ?? rep.highlights_html, nextTheme, new Date().toISOString(), rep.id);
@@ -115,10 +106,6 @@ r.post('/:id/copy-last', (req, res) => {
   if (!src) return res.status(404).json({ error: 'not found' });
   const now = new Date().toISOString();
   const label = req.body?.period_label || isoWeek(new Date(Date.now() + 7 * 864e5));
-  const ex = db.prepare('SELECT id FROM weekly_reports WHERE period_label=?').get(label);
-  if (ex) {
-    return res.status(409).json({ error: 'period_label exists', existing_id: ex.id });
-  }
   const tx = db.transaction(() => {
     const info = db
       .prepare('INSERT INTO weekly_reports (period_label,title,status,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?)')

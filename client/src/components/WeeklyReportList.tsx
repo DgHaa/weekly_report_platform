@@ -79,13 +79,7 @@ export default function WeeklyReportList() {
       const r = await api.createReport({});
       setSelected(r.id);
     } catch (err: any) {
-      const existingId = err?.body?.existing_id;
-      if (existingId) {
-        setSelected(existingId);
-        dialog.confirm({ title: '本周周报已存在', message: '本周的周报已经创建过了，已为你打开已有周报。', confirmText: '知道了' });
-      } else {
-        dialog.confirm({ title: '创建失败', message: err?.message || '请重试', confirmText: '知道了' });
-      }
+      dialog.confirm({ title: '创建失败', message: err?.message || '请重试', confirmText: '知道了' });
     }
   };
   const copyFrom = async (id: any) => {
@@ -93,13 +87,7 @@ export default function WeeklyReportList() {
       const nr = await api.copyLast(id, {});
       setSelected(nr.id);
     } catch (err: any) {
-      const existingId = err?.body?.existing_id;
-      if (existingId) {
-        setSelected(existingId);
-        dialog.confirm({ title: '目标周期已存在', message: '所选周期的周报已经存在，已为你打开已有周报。', confirmText: '知道了' });
-      } else {
-        dialog.confirm({ title: '复制失败', message: err?.message || '请重试', confirmText: '知道了' });
-      }
+      dialog.confirm({ title: '复制失败', message: err?.message || '请重试', confirmText: '知道了' });
     }
   };
   const publish = (r: any) => {

@@ -284,13 +284,7 @@ export default function WeeklyReportEditor({ reportId, onBack, onReportChange }:
       const nr = await api.copyLast(report.id, {});
       onReportChange(nr.id);
     } catch (e: any) {
-      const existingId = e?.body?.existing_id;
-      if (existingId) {
-        onReportChange(existingId);
-        dialog.confirm({ title: '目标周期已存在', message: '该周期周报已经存在，已为你打开已有周报。', confirmText: '知道了' });
-      } else {
-        showToast(`复制上期失败：${e?.message || '请重试'}`, 'err');
-      }
+      showToast(`复制上期失败：${e?.message || '请重试'}`, 'err');
     }
   };
 
