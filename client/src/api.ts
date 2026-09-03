@@ -12,7 +12,9 @@ async function req(method: string, path: string, body?: any) {
   if (!r.ok) {
     let e: any;
     try { e = await r.json(); } catch { /* ignore */ }
-    throw new Error(e?.error || r.statusText);
+    const err: any = new Error(e?.error || r.statusText);
+    err.body = e;
+    throw err;
   }
   if (r.status === 204) return null;
   return r.json();

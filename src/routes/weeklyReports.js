@@ -46,8 +46,9 @@ r.get('/', (req, res) => {
 r.post('/', (req, res) => {
   const { period_label, title } = req.body || {};
   const label = period_label || isoWeek();
-  if (db.prepare('SELECT id FROM weekly_reports WHERE period_label=?').get(label)) {
-    return res.status(409).json({ error: 'period_label exists' });
+  const existing = db.prepare('SELECT id FROM weekly_reports WHERE period_label=?').get(label);
+  if (existing) {
+    return res.status(409).json({ error: 'period_label exists', existing_id: existing.id });
   }
   const now = new Date().toISOString();
   const info = db
