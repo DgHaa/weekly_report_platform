@@ -8,6 +8,7 @@ client/dist/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.bak*
 !data/.gitkeep
 
 # 运行期上传的图片等附件
