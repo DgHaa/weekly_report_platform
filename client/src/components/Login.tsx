@@ -42,12 +42,11 @@ export default function Login() {
           <h1>欢迎回来</h1>
           <p className="sub">登录以继续协作</p>
           {err && <div className="err" role="alert">{err}</div>}
-          <label htmlFor="username">用户名</label>
+          <label htmlFor="username">用户名（姓名）</label>
           <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
-          <label htmlFor="password">密码</label>
+          <label htmlFor="password">密码（工号）</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           <button type="submit" className="primary" disabled={submitting}>{submitting ? '登录中…' : '登 录'}</button>
-          <p className="hint">默认管理员账号：admin / admin123（首次登录后请尽快修改密码）</p>
         </form>
       </div>
     </div>
