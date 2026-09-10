@@ -63,6 +63,7 @@ export default function RichTextEditor({
   const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
   const seeded = useRef(false);
+  const dirtyRef = useRef(false);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
 
@@ -74,13 +75,15 @@ export default function RichTextEditor({
       Collaboration.configure({ document: ydoc, field }),
       CollaborationCursor.configure({ provider, user: { name: userName || '匿名', color: COLORS[(workItemId || 0) % COLORS.length] } })
     ],
-    onUpdate: () => setDirty(true)
+    onUpdate: () => { setDirty(true); dirtyRef.current = true; }
   });
 
   // 兜底保存：组件卸载（切预览/返回）或页面隐藏时，把最近 10s 内的编辑落库，避免丢失
+  // 注意：用 dirtyRef 读取脏状态，避免 setInterval 闭包捕获到过期的 dirty（stale closure）
   const flush = () => {
-    if (editor && dirty && !editor.isDestroyed) {
+    if (editor && dirtyRef.current && !editor.isDestroyed) {
       onSaveRef.current(editor.getHTML());
+      dirtyRef.current = false;
       setDirty(false);
     }
   };
@@ -109,8 +112,9 @@ export default function RichTextEditor({
   }, [editor, provider, ydoc, field, initialHTML]);
 
   const saveNow = () => {
-    if (editor && dirty && !editor.isDestroyed) {
+    if (editor && dirtyRef.current && !editor.isDestroyed) {
       onSaveRef.current(editor.getHTML());
+      dirtyRef.current = false;
       setDirty(false);
     }
   };
